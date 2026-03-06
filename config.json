@@ -1,0 +1,35 @@
+{
+  "detection": {
+    "port_scan": {
+      "enabled": true,
+      "threshold": 100,
+      "time_window_seconds": 60,
+      "severity": {
+        "numeric": 3,
+        "label": "medium"
+      }
+    },
+    "syn_flood": {
+      "enabled": true,
+      "threshold": 10,
+      "time_window_seconds": 10,
+      "severity": {
+        "numeric": 4,
+        "label": "high"
+      }
+    },
+    "suspicious_ports": {
+      "enabled": true,
+      "ports": [21, 23, 4444],
+      "severity": {
+        "numeric": 2,
+        "label": "low"
+      }
+    }
+  },
+  "output": {
+    "format": "json",
+    "pretty_print": false,
+    "file": null
+  }
+}
