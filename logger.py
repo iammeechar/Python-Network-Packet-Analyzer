@@ -1,12 +1,14 @@
 import json
 import sys
-from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict, Any, Optional
+
 
 class EventLogger:
     """
-    EventLogger writes detection events to a file or stdout.
-    Supports JSON output, pretty-printing, and optional timestamped filenames.
+    EventLogger handles output of detection events.
+
+    Events can be printed to stdout or written to a file
+    in JSON format.
     """
 
     def __init__(self, output_file: Optional[str] = None, pretty: bool = False):
@@ -14,44 +16,40 @@ class EventLogger:
         Initialize the logger.
 
         Args:
-            output_file: Path to log file. If None, logs to stdout.
-            pretty: Whether to pretty-print JSON for readability.
+            output_file: Optional path to log file
+            pretty: Whether to pretty-print JSON
         """
         self.pretty = pretty
-        self.output_target = open(output_file, "a") if output_file else sys.stdout
+        self.file_handle = None
 
-    def log_event(self, event: Dict):
+        if output_file:
+            self.file_handle = open(output_file, "a")
+
+    def log_event(self, event: Dict[str, Any]) -> None:
         """
-        Write a single event as JSON to the output target.
+        Log a detection event.
 
         Args:
-            event: Detection event dictionary
+            event: Dictionary containing event data
         """
+
         if self.pretty:
-            json.dump(event, self.output_target, indent=4)
-            self.output_target.write("\n")
+            json_event = json.dumps(event, indent=4)
         else:
-            json.dump(event, self.output_target)
-            self.output_target.write("\n")
-        self.output_target.flush()  # Ensure immediate write
+            json_event = json.dumps(event)
 
-    def close(self):
+        # Print to console
+        print(json_event)
+        sys.stdout.flush()
+
+        # Write to file if enabled
+        if self.file_handle:
+            self.file_handle.write(json_event + "\n")
+            self.file_handle.flush()
+
+    def close(self) -> None:
         """
-        Close the output file if applicable.
+        Close the log file if it exists.
         """
-        if self.output_target is not sys.stdout:
-            self.output_target.close()
-
-
-# Example usage
-if __name__ == "__main__":
-    logger = EventLogger(pretty=True)
-    test_event = {
-        "event_type": "port_scan",
-        "source_ip": "192.168.1.10",
-        "destination_ip": "192.168.1.100",
-        "details": {"connection_count": 120, "ports_hit": [22, 23, 80]},
-        "severity": {"numeric": 3, "label": "medium"},
-        "timestamp": datetime.utcnow().isoformat() + "Z"
-    }
-    logger.log_event(test_event)
+        if self.file_handle:
+            self.file_handle.close()
