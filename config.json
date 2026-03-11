@@ -2,7 +2,7 @@
   "detection": {
     "port_scan": {
       "enabled": true,
-      "threshold": 100,
+      "threshold": 2,
       "time_window_seconds": 60,
       "severity": {
         "numeric": 3,
@@ -11,7 +11,7 @@
     },
     "syn_flood": {
       "enabled": true,
-      "threshold": 10,
+      "threshold": 5,
       "time_window_seconds": 10,
       "severity": {
         "numeric": 4,
