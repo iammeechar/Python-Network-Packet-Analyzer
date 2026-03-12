@@ -72,10 +72,17 @@ class PacketCapture:
             if pkt.haslayer("IP") and pkt.haslayer("TCP"):
                 ip_layer = pkt["IP"]
                 tcp_layer = pkt["TCP"]
+
+                # Normalize service port
+                if tcp_layer.dport < 1024:
+                    port = tcp_layer.dport
+                else:
+                    port = tcp_layer.sport
+
                 return {
                     "source_ip": ip_layer.src,
                     "dest_ip": ip_layer.dst,
-                    "dest_port": tcp_layer.dport,
+                    "dest_port": port,
                     "flags": tcp_layer.flags
                 }
             elif pkt.haslayer("IP") and pkt.haslayer("UDP"):
