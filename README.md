@@ -1,154 +1,272 @@
-# Network Packet Analyzer (NPA) – v1
+# Python Network Packet Analyzer (v1)
+# Overview
 
-A lightweight **Python-based network packet analyzer** that performs basic intrusion detection using live packet capture or PCAP file analysis.
+The Python Network Packet Analyzer (NPA) is a lightweight network monitoring tool designed to detect basic network attack patterns in real time.
 
-This project was developed as part of a cybersecurity lab environment to demonstrate how network traffic can be captured, analyzed, and used to detect suspicious activity.
+The analyzer captures live network packets and applies rule-based detection logic to identify:
 
----
+Port scanning activity
 
-# Project Overview
+SYN flood attacks
 
-The Network Packet Analyzer (NPA) captures network packets and analyzes them for potential malicious behaviour such as:
+Connections to suspicious ports
 
-* Port scanning
-* SYN flood attacks
-* Connections to suspicious ports
+The goal of this project is to demonstrate how basic intrusion detection logic can be implemented in Python using packet inspection.
 
-The analyzer uses packet capture and rule-based detection logic to produce **structured JSON security events**.
-
----
+This project is the prototype (v1) of a larger security lab where more advanced detection and attack simulations will be added in future versions.
 
 # Features
 
-* Live packet capture from a network interface
-* Offline analysis using PCAP files
-* Configurable detection thresholds
-* JSON formatted security events
-* Optional pretty-print output
-* Modular detection engine
+Live packet capture
 
----
+Port scan detection
 
-# Project Architecture
+SYN flood detection
 
-The tool is composed of four main components:
+Suspicious port detection
 
-| Component          | Description                              |
-| ------------------ | ---------------------------------------- |
-| `capture.py`       | Handles packet capture using Scapy       |
-| `detector.py`      | Detection engine that analyzes packets   |
-| `config_loader.py` | Loads detection rules from `config.json` |
-| `logger.py`        | Formats and outputs security events      |
+JSON formatted security alerts
 
-Execution is handled by:
+Real-time console output
 
-```
-cli.py
-```
+Modular detection engine 
 
-Which acts as the command line interface for the analyzer.
+# Project Structure
 
----
+The project is organized into modular components to separate packet capture, detection logic, and execution.
 
-# Detection Capabilities
+Python-Network-Packet-Analyzer/
+│
+├── main.py              # Entry point for the analyzer
+├── capture.py           # Packet capture and parsing logic
+├── detection_engine.py  # Detection algorithms
+├── requirements.txt     # Python dependencies
+├── README.md            # Project documentation
+└── .venv/               # Python virtual environment 
 
-## Port Scan Detection
+# Component Responsibilities
+File	Responsibility
+main.py	Starts the analyzer and processes packets
+capture.py	Captures and parses network packets
+detection_engine.py	Implements attack detection logic
+Configuration
 
-Detects when a host connects to many different ports within a short time window.
+Detection thresholds are configurable within the detection engine.
 
-Configurable parameters:
+Example parameters:
 
-* Threshold
-* Time window
-* Severity level
+Parameter	Purpose	Example
+port_threshold	Number of unique ports required to trigger a scan alert	5
+port_window	Time window used for port scan detection	60 seconds
+syn_threshold	Number of SYN packets required to trigger SYN flood alert	10
+syn_window	Time window for SYN detection	10 seconds
 
----
+These values can be adjusted to tune detection sensitivity.
 
-## SYN Flood Detection
+# Example Analyzer Output
 
-Detects excessive TCP SYN packets which may indicate a **denial of service attack**.
-
----
-
-## Suspicious Port Detection
-
-Alerts when traffic is detected on ports commonly associated with backdoors or insecure services.
-
-Example suspicious ports:
-
-* 21 (FTP)
-* 23 (Telnet)
-* 4444 (Common reverse shell port)
-
----
-
-# Lab Environment
-
-The project was tested in a **two-machine lab setup**:
-
-| Machine    | Role                          |
-| ---------- | ----------------------------- |
-| Debian VM  | Network Packet Analyzer (IDS) |
-| Kali Linux | Attack simulation             |
-
-Both machines must be connected to the **same bridged network**.
-
----
-
-# Installation
-
-Clone the repository:
-
-```bash
-git clone https://github.com/iammeechar/network-packet-analyzer.git
-cd network-packet-analyzer
-```
-
-Create a Python virtual environment:
-
-```bash
-python3 -m venv .venv
-```
-
-Activate the environment:
-
-Linux / macOS
-
-```bash
-source .venv/bin/activate
-```
-
-Install dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
----
-
-# Running the Analyzer
-
-⚠ Packet capture requires **root privileges**.
-
-Start the analyzer using the virtual environment interpreter:
-
-```bash
-sudo .venv/bin/python cli.py --live --interface <interface> --config config.json --pretty
-```
+When malicious activity is detected, the analyzer generates structured JSON events.
 
 Example:
 
-```bash
-sudo .venv/bin/python cli.py --live --interface enp0s3 --config config.json --pretty
-```
+{
+  "event_type": "port_scan",
+  "source_ip": "192.168.100.99",
+  "destination_ip": "192.168.100.77",
+  "ports_scanned": 21,
+  "time_window_seconds": 60,
+  "severity": "medium",
+  "timestamp": "2026-03-12T16:48:26Z"
+}
 
-Stop the analyzer using:
+Example SYN flood detection:
 
-```
-CTRL + C
-```
+{
+  "event_type": "syn_flood",
+  "source_ip": "192.168.100.99",
+  "destination_ip": "192.168.100.77",
+  "syn_count": 10,
+  "ack_count": 0,
+  "time_window_seconds": 10,
+  "severity": "high",
+  "timestamp": "2026-03-12T16:48:04Z"
+}
+# Contributing
 
----
+Contributions are welcome.
+
+Potential improvements include:
+
+Additional intrusion detection rules
+
+Log file output
+
+Alerting integrations
+
+Performance optimization
+
+Visualization dashboards
+
+# License
+
+This project is intended for educational and research purposes.
+
+Users are responsible for ensuring the tool is used only in authorized environments.
+
+# Technology Stack
+Component	Technology
+Programming Language	Python 3
+Packet Capture	Scapy
+Environment	Linux
+Testing Tools	Nmap, hping3, tcpdump
+
+# Installation
+Clone the repository
+git clone https://github.com/iammeechar/Python-Network-Packet-Analyzer.git
+cd Python-Network-Packet-Analyzer
+
+Create virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+Install dependencies
+pip install -r requirements.txt
+# Running the Analyzer
+
+Run the analyzer with administrative privileges so it can capture packets.
+
+sudo python main.py
+
+The analyzer will begin monitoring live traffic and print detection events to the console.
+
+Example output:
+
+{
+ "event_type": "port_scan",
+ "source_ip": "192.168.100.99",
+ "destination_ip": "192.168.100.77",
+ "ports_scanned": 21,
+ "time_window_seconds": 60,
+ "severity": "medium"
+}
+
+# Detection Logic
+# Port Scan Detection
+
+Tracks the number of unique destination ports accessed by a source IP within a time window.
+
+If the number exceeds a configured threshold, a port scan event is triggered.
+
+# SYN Flood Detection
+
+Counts SYN packets from a source IP and compares them with completed connections.
+
+If SYN packets exceed the configured threshold within the time window, a SYN flood alert is generated.
+
+# Suspicious Port Detection
+
+Traffic targeting known high-risk ports is flagged immediately.
+
+Examples include:
+
+Telnet (23)
+
+FTP (21)
+
+# Lab Environment
+
+Testing was performed in a virtual lab environment.
+
+Machine	Role
+Kali Linux	Attack simulation
+Debian	Packet analyzer host
+
+Both machines were configured on the same subnet to allow direct packet observation.
+
+# Testing and Validation
+
+The following commands were used to validate detection functionality.
+
+Test Type	Command	Purpose	Expected Result
+Network connectivity	ping 192.168.100.77	Verify network connectivity	No alert
+Port connectivity	nc -zv 192.168.100.77 22	Test port reachability	No alert
+Basic port scan	nmap 192.168.100.77	Generate scanning traffic	Port scan alert
+Expanded port scan	nmap -p 1-100 192.168.100.77	Scan multiple ports	Port scan alert
+Repeated scans	Run scan multiple times	Test detection thresholds	Multiple alerts
+SYN flood simulation	hping3 -S --flood -p 80 192.168.100.77	Simulate DoS attack	SYN flood alert
+Controlled SYN packets	hping3 -S -p 80 -c 20 192.168.100.77	Limited SYN test	SYN flood alert
+Suspicious port scan	nmap -p 23 192.168.100.77	Test Telnet detection	Suspicious port alert
+HTTP request	curl http://192.168.100.77	Generate normal traffic	No alert
+Packet Capture Validation
+
+To verify that packets were visible to the analyzer, traffic was monitored using:
+
+sudo tcpdump -i eth0
+
+Example output during a port scan:
+
+192.168.100.99.37222 > 192.168.100.77.33: Flags [S]
+192.168.100.77.33 > 192.168.100.99.37222: Flags [R.]
+
+This confirms that the scanner sends SYN packets to multiple ports, which the analyzer uses to detect scanning behavior.
+
+# Bug Fixes and Improvements
+
+During testing, a packet parsing issue prevented reliable port scan detection.
+
+The issue was resolved by improving packet parsing logic in capture.py, ensuring that packets are converted into a consistent dictionary format before being processed by the detection engine.
+
+Updated packet fields include:
+
+source_ip
+
+dest_ip
+
+dest_port
+
+flags
+
+This fix improved detection accuracy and stabilized the analyzer during live capture.
+
+# Limitations
+
+This prototype focuses on demonstrating basic IDS concepts and has several limitations:
+
+Limited attack detection signatures
+
+No persistent logging
+
+No graphical interface
+
+No traffic classification
+
+These improvements will be introduced in v2.
+
+# Future Work (v2)
+
+Planned improvements include:
+
+Expanded attack simulations
+
+Additional detection rules
+
+Persistent event logging
+
+Integration with vulnerable lab machines
+
+Improved detection tuning
+
+Educational Purpose
+
+This project was developed as part of a network security learning lab to explore:
+
+Packet capture
+
+Intrusion detection techniques
+
+Network attack simulation
+
+Security tool development in Python
 
 # PCAP Analysis Mode
 
