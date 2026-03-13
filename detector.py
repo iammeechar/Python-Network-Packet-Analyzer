@@ -1,36 +1,66 @@
 import time
 from collections import defaultdict
 
+
 class DetectionEngine:
+    """
+    Network intrusion detection engine for v2.
+    Detects:
+      - Port scans
+      - SYN floods
+      - Suspicious ports
+    """
+
     def __init__(self, config_loader):
         self.config = config_loader.config
 
+        # -------------------------
+        # Port scan thresholds
+        # -------------------------
         self.port_threshold = self.config["detection"]["port_scan"]["threshold"]
         self.port_window = self.config["detection"]["port_scan"]["time_window_seconds"]
         self.port_cooldown = self.config["detection"]["port_scan"].get("cooldown_seconds", 15)
 
+        # -------------------------
+        # SYN flood thresholds
+        # -------------------------
         self.syn_threshold = self.config["detection"]["syn_flood"]["threshold"]
         self.syn_window = self.config["detection"]["syn_flood"]["time_window_seconds"]
         self.syn_cooldown = self.config["detection"]["syn_flood"].get("cooldown_seconds", 15)
 
+        # -------------------------
         # Suspicious ports
+        # -------------------------
         self.suspicious_ports = set(self.config["detection"]["suspicious_ports"]["ports"])
 
+        # -------------------------
         # Tracking structures
-        self.port_scan_tracker = defaultdict(dict)
-        self.syn_tracker = defaultdict(dict)
+        # -------------------------
+        # FIX: use defaultdict with lambda to initialize records properly.
+        #      This ensures first packet has correct keys, avoiding missing events.
+        self.port_scan_tracker = defaultdict(
+            lambda: {"window_start": 0, "ports": set(), "cooldown_until": 0}
+        )
+        self.syn_tracker = defaultdict(
+            lambda: {"window_start": 0, "syn_count": 0, "ack_count": 0, "cooldown_until": 0}
+        )
 
         # Debug counters for live monitoring
         self.debug_counters = defaultdict(lambda: {"ports_seen": set(), "syn_count": 0})
 
+    # -------------------------
+    # Main packet processing
+    # -------------------------
     def process_packet(self, packet):
         """
-        Accepts either a Scapy packet OR a dictionary with keys:
-        src_ip, dst_ip, dst_port, flags
+        Accepts a Scapy packet or a dictionary:
+          source_ip, dest_ip, dest_port, flags
+        Returns a list of detected events (may be empty).
         """
+
         events = []
 
-        # Determine if packet is a dict or Scapy object
+        # Extract fields from dict or Scapy object
         if isinstance(packet, dict):
             src_ip = packet.get("source_ip")
             dst_ip = packet.get("dest_ip")
@@ -49,25 +79,33 @@ class DetectionEngine:
 
         now = time.time()
 
+        # -------------------------
         # Run detections
+        # -------------------------
         port_event = self._detect_port_scan(src_ip, dst_ip, dst_port, now)
         syn_event = self._detect_syn_flood(src_ip, dst_ip, flags, now)
         sus_event = self._detect_suspicious_ports(src_ip, dst_ip, dst_port, now)
 
+        # Append only non-None events
         if port_event:
-            events.extend(port_event)
+            events.append(port_event)
         if syn_event:
-            events.extend(syn_event)
+            events.append(syn_event)
         if sus_event:
             events.append(sus_event)
 
-        # ---- Debugging: print live counters ----
+        # -------------------------
+        # Debug output (optional)
+        # -------------------------
         self.debug_counters[src_ip]["ports_seen"].add(dst_port)
         if flags == "S":
             self.debug_counters[src_ip]["syn_count"] += 1
 
-        print(f"[DEBUG] {src_ip} → Ports Seen: {len(self.debug_counters[src_ip]['ports_seen'])}, "
-              f"SYN Count: {self.debug_counters[src_ip]['syn_count']}", flush=True)
+        print(
+            f"[DEBUG] {src_ip} → Ports Seen: {len(self.debug_counters[src_ip]['ports_seen'])}, "
+            f"SYN Count: {self.debug_counters[src_ip]['syn_count']}",
+            flush=True
+        )
 
         return events
 
@@ -75,12 +113,11 @@ class DetectionEngine:
     # Port Scan Detection
     # -------------------------
     def _detect_port_scan(self, src_ip, dst_ip, dst_port, now):
+        """
+        Detect multiple ports scanned by same IP within a time window.
+        Returns a port_scan event dict or None.
+        """
         record = self.port_scan_tracker[src_ip]
-
-        if not record:
-            record["window_start"] = now
-            record["ports"] = set()
-            record["cooldown_until"] = 0
 
         # Window expired → reset
         if now - record["window_start"] > self.port_window:
@@ -89,11 +126,12 @@ class DetectionEngine:
 
         record["ports"].add(dst_port)
 
-        # Cooldown active?
+        # Cooldown active → skip
         if now < record["cooldown_until"]:
             return None
 
         if len(record["ports"]) >= self.port_threshold:
+            # Event triggered
             event = {
                 "event_type": "port_scan",
                 "source_ip": src_ip,
@@ -104,9 +142,11 @@ class DetectionEngine:
                 "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now))
             }
             record["cooldown_until"] = now + self.port_cooldown
-            record["window_start"] = now
+            # Reset ports after reporting
             record["ports"] = set()
-            return [event]
+            record["window_start"] = now
+            return event
+        print(f"[DEBUG] _detect_port_scan {src_ip} → ports: {record['ports']}")
 
         return None
 
@@ -114,14 +154,13 @@ class DetectionEngine:
     # SYN Flood Detection
     # -------------------------
     def _detect_syn_flood(self, src_ip, dst_ip, flags, now):
+        """
+        Detect SYN floods based on SYN packets count in a time window.
+        Returns a syn_flood event dict or None.
+        """
         record = self.syn_tracker[src_ip]
 
-        if not record:
-            record["window_start"] = now
-            record["syn_count"] = 0
-            record["ack_count"] = 0
-            record["cooldown_until"] = 0
-
+        # Window expired → reset counters
         if now - record["window_start"] > self.syn_window:
             record["window_start"] = now
             record["syn_count"] = 0
@@ -131,14 +170,16 @@ class DetectionEngine:
         if flags == "S":
             record["syn_count"] += 1
 
-        # Track ACK
+        # Track ACK packets
         if "A" in str(flags):
             record["ack_count"] += 1
 
+        # Cooldown active → skip
         if now < record["cooldown_until"]:
             return None
 
         if record["syn_count"] >= self.syn_threshold:
+            # Event triggered
             event = {
                 "event_type": "syn_flood",
                 "source_ip": src_ip,
@@ -150,17 +191,22 @@ class DetectionEngine:
                 "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now))
             }
             record["cooldown_until"] = now + self.syn_cooldown
-            record["window_start"] = now
+            # Reset counters
             record["syn_count"] = 0
             record["ack_count"] = 0
-            return [event]
+            record["window_start"] = now
+            return event
 
         return None
 
     # -------------------------
-    # Suspicious Ports
+    # Suspicious Ports Detection
     # -------------------------
     def _detect_suspicious_ports(self, src_ip, dst_ip, dst_port, now):
+        """
+        Detect packets sent to known suspicious ports.
+        Returns a suspicious_port event dict or None.
+        """
         if dst_port in self.suspicious_ports:
             return {
                 "event_type": "suspicious_port",
@@ -170,4 +216,5 @@ class DetectionEngine:
                 "severity": self.config["detection"]["suspicious_ports"]["severity"]["label"],
                 "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now))
             }
+        print(f"[DEBUG] _detect_suspicious_ports {dst_port}")
         return None
