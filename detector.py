@@ -1,7 +1,6 @@
 import time
 from collections import defaultdict
 
-
 class DetectionEngine:
     def __init__(self, config_loader):
         self.config = config_loader.config
@@ -21,6 +20,9 @@ class DetectionEngine:
         self.port_scan_tracker = defaultdict(dict)
         self.syn_tracker = defaultdict(dict)
 
+        # Debug counters for live monitoring
+        self.debug_counters = defaultdict(lambda: {"ports_seen": set(), "syn_count": 0})
+
     def process_packet(self, packet):
         """
         Accepts either a Scapy packet OR a dictionary with keys:
@@ -30,13 +32,11 @@ class DetectionEngine:
 
         # Determine if packet is a dict or Scapy object
         if isinstance(packet, dict):
-            # Extract fields directly
             src_ip = packet.get("source_ip")
             dst_ip = packet.get("dest_ip")
             dst_port = packet.get("dest_port")
             flags = packet.get("flags", "")
         else:
-            # Assume Scapy packet
             try:
                 if not packet.haslayer("IP") or not packet.haslayer("TCP"):
                     return events
@@ -45,23 +45,29 @@ class DetectionEngine:
                 dst_port = packet["TCP"].dport
                 flags = packet["TCP"].flags
             except Exception:
-                # Fallback: skip unknown packet types
                 return events
 
         now = time.time()
 
         # Run detections
         port_event = self._detect_port_scan(src_ip, dst_ip, dst_port, now)
-        if port_event:
-            events.append(port_event)
-
         syn_event = self._detect_syn_flood(src_ip, dst_ip, flags, now)
-        if syn_event:
-            events.append(syn_event)
-
         sus_event = self._detect_suspicious_ports(src_ip, dst_ip, dst_port, now)
+
+        if port_event:
+            events.extend(port_event)
+        if syn_event:
+            events.extend(syn_event)
         if sus_event:
             events.append(sus_event)
+
+        # ---- Debugging: print live counters ----
+        self.debug_counters[src_ip]["ports_seen"].add(dst_port)
+        if flags == "S":
+            self.debug_counters[src_ip]["syn_count"] += 1
+
+        print(f"[DEBUG] {src_ip} → Ports Seen: {len(self.debug_counters[src_ip]['ports_seen'])}, "
+              f"SYN Count: {self.debug_counters[src_ip]['syn_count']}", flush=True)
 
         return events
 
@@ -101,8 +107,6 @@ class DetectionEngine:
             record["window_start"] = now
             record["ports"] = set()
             return [event]
-        
-        
 
         return None
 
