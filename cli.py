@@ -1,12 +1,35 @@
 import argparse
+import os
+import json
 import sys
+import logging
+from logging.handlers import RotatingFileHandler
 from config_loader import ConfigLoader
 from capture import PacketCapture
 from detector import DetectionEngine
 from logger import EventLogger
 
+LOG_DIR = "logs"
+LOG_FILE = os.path.join(LOG_DIR, "alerts.log") 
+
+os.makedirs(LOG_DIR, exist_ok=True)
+
+logger = logging.getLogger("packet analyzer")
+logger.setLevel(logging.INFO)
+
+handler = RotatingFileHandler(
+    LOG_FILE,
+    maxBytes=1000000,
+    backupCount=3
+    )
+
+logger.addHandler(handler)
+
+def log_event(event):
+    logger.info(json.dumps(event))
 
 def main():
+
     parser = argparse.ArgumentParser(
         description="CLI-based Network Packet Analyzer (v1)"
     )
@@ -53,7 +76,8 @@ def main():
         for packet in capture.capture():
             events = engine.process_packet(packet)
             for event in events:
-                event_logger.log_event(event)
+                print(json.dumps(event, indent=4))
+                log_event(event)
     except KeyboardInterrupt:
         print("\nCapture interrupted by user", file=sys.stderr)
     finally:
