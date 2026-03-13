@@ -100,7 +100,9 @@ class DetectionEngine:
             record["cooldown_until"] = now + self.port_cooldown
             record["window_start"] = now
             record["ports"] = set()
-            return event
+            return [event]
+        
+        
 
         return None
 
@@ -147,7 +149,7 @@ class DetectionEngine:
             record["window_start"] = now
             record["syn_count"] = 0
             record["ack_count"] = 0
-            return event
+            return [event]
 
         return None
 
