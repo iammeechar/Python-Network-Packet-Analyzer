@@ -1,297 +1,96 @@
-# Network Packet Analyzer (NPA) – v1
+Network Packet Analyzer v2 (NPA_lab2)
+Project Overview
 
-A lightweight **Python-based network packet analyzer** that performs basic intrusion detection using live packet capture or PCAP file analysis.
+Description:
+A Python-based network packet analyzer designed to detect suspicious network activity, including port scans, SYN floods, and access to suspicious ports. v2 extends the prototype (v1) with improved modularity, live capture, PCAP replay, and structured logging for portfolio demonstration.
 
-This project was developed as part of a cybersecurity lab environment to demonstrate how network traffic can be captured, analyzed, and used to detect suspicious activity.
+Target Environment:
 
----
+Debian VM (analyzer)
 
-# Project Overview
+Kali Linux / Windows VM (attack simulation)
 
-The Network Packet Analyzer (NPA) captures network packets and analyzes them for potential malicious behaviour such as:
+Metasploitable VM for vulnerability testing
 
-* Port scanning
-* SYN flood attacks
-* Connections to suspicious ports
+Core Technologies:
 
-The analyzer uses packet capture and rule-based detection logic to produce **structured JSON security events**.
+Python 3.x
 
----
+Scapy for packet capture
 
-# Features
+JSON configuration and structured logging
 
-* Live packet capture from a network interface
-* Offline analysis using PCAP files
-* Configurable detection thresholds
-* JSON formatted security events
-* Optional pretty-print output
-* Modular detection engine
+Requirements
 
----
+Python 3.10+
 
-# Project Architecture
+scapy
 
-The tool is composed of four main components:
+argparse (standard library)
 
-| Component          | Description                              |
-| ------------------ | ---------------------------------------- |
-| `capture.py`       | Handles packet capture using Scapy       |
-| `detector.py`      | Detection engine that analyzes packets   |
-| `config_loader.py` | Loads detection rules from `config.json` |
-| `logger.py`        | Formats and outputs security events      |
+Root privileges for live capture or SYN flood simulation
 
-Execution is handled by:
+VMs on the same subnet or bridged network
 
-```
-cli.py
-```
-
-Which acts as the command line interface for the analyzer.
-
----
-
-# Detection Capabilities
-
-## Port Scan Detection
-
-Detects when a host connects to many different ports within a short time window.
-
-Configurable parameters:
-
-* Threshold
-* Time window
-* Severity level
-
----
-
-## SYN Flood Detection
-
-Detects excessive TCP SYN packets which may indicate a **denial of service attack**.
-
----
-
-## Suspicious Port Detection
-
-Alerts when traffic is detected on ports commonly associated with backdoors or insecure services.
-
-Example suspicious ports:
-
-* 21 (FTP)
-* 23 (Telnet)
-* 4444 (Common reverse shell port)
-
----
-
-# Lab Environment
-
-The project was tested in a **two-machine lab setup**:
-
-| Machine    | Role                          |
-| ---------- | ----------------------------- |
-| Debian VM  | Network Packet Analyzer (IDS) |
-| Kali Linux | Attack simulation             |
-
-Both machines must be connected to the **same bridged network**.
-
----
-
-# Installation
+Setup Instructions
 
 Clone the repository:
 
-```bash
-git clone https://github.com/iammeechar/network-packet-analyzer.git
-cd network-packet-analyzer
-```
+git clone <repo-url> NPA_lab2
+cd NPA_lab2
 
-Create a Python virtual environment:
+Create and activate virtual environment:
 
-```bash
 python3 -m venv .venv
-```
-
-Activate the environment:
-
-Linux / macOS
-
-```bash
 source .venv/bin/activate
-```
 
 Install dependencies:
 
-```bash
 pip install -r requirements.txt
-```
 
----
+Adjust thresholds and ports in config.json if necessary.
 
-# Running the Analyzer
+Usage
+Live Capture
+sudo -E python3 cli.py --live --interface <interface-name> --config config.json --pretty
+PCAP Replay
+python3 cli.py --pcap sample.pcap --config config.json --pretty
+Output
 
-⚠ Packet capture requires **root privileges**.
+JSON formatted events, optionally written to a file:
 
-Start the analyzer using the virtual environment interpreter:
+--output-file events.json
+Test Plan
+Scenario	Target	Tool / Command	Expected Detection	Notes / Observations
+Port Scan	Debian VM	nmap -p 1-1024 <Debian-IP>	port_scan event if ports scanned exceed threshold	Multiple ports needed to exceed threshold
+SYN Flood	Debian VM	sudo hping3 -S -p 80 --flood <Debian-IP>	syn_flood event if SYN packets exceed threshold	Requires root; check cooldown
+Suspicious Port	Debian VM	nc <Debian-IP> 21 / 23 / 4444	suspicious_port event	Logged per connection attempt
+HTTP Traffic	Debian VM	curl http://<Debian-IP>	Logs port access (port 80)	v1 only logged port scans & SYN; test HTTP events
+PCAP Replay	Analyzer VM	python cli.py --pcap sample.pcap	Same events as live capture	Offline detection test
+Combined Attack	Debian + Metasploitable	Sequential scans, SYN floods, suspicious ports	Multiple events with varying severity	Observe handling of concurrent events
+Logging Verification	Analyzer VM	Review JSON log	Events logged with timestamp, source IP, severity	Include screenshots for portfolio
+Security Notes
 
-```bash
-sudo .venv/bin/python cli.py --live --interface <interface> --config config.json --pretty
-```
+Root privileges are required for raw socket access.
 
-Example:
+Always perform testing in isolated lab environments.
 
-```bash
-sudo .venv/bin/python cli.py --live --interface enp0s3 --config config.json --pretty
-```
+Threshold tuning prevents excessive false positives during testing.
 
-Stop the analyzer using:
+Artifacts for Portfolio
 
-```
-CTRL + C
-```
+JSON logs of all events.
 
----
+Screenshots of live capture events.
 
-# PCAP Analysis Mode
+Example PCAP replay events.
 
-The analyzer can also process recorded traffic:
+Configuration snapshots (config.json).
 
-```bash
-python cli.py --pcap capture.pcap --config config.json --pretty
-```
+Next Steps
 
----
+Expand detection rules for HTTP/HTTPS traffic and multi-layer threats.
 
-# Attack Simulation (Kali)
+Integrate alerts to a dashboard for SOC-like visualization.
 
-## Port Scan
-
-```bash
-nmap -p 1-1000 <IDS-IP>
-```
-
----
-
-## SYN Flood
-
-```bash
-sudo hping3 -S -p 80 --flood <IDS-IP>
-```
-
----
-
-## Suspicious Port Connection
-
-```bash
-nc <IDS-IP> 4444
-```
-
----
-
-# Example Detection Event
-
-```json
-{
-  "timestamp": "2026-03-11T14:22:51",
-  "event_type": "port_scan",
-  "source_ip": "192.168.56.101",
-  "severity": "medium"
-}
-```
-
----
-
-# Configuration
-
-Detection rules are stored in:
-
-```
-config.json
-```
-
-Example configuration parameters:
-
-* detection thresholds
-* time windows
-* severity levels
-* suspicious ports
-
----
-
-# Requirements
-
-* Python 3.10+
-* Root privileges for packet capture
-* Linux environment recommended
-
----
-
-# Project Roadmap
-
-Future improvements planned:
-
-* Performance optimizations
-* Additional detection rules
-* Logging to SIEM-compatible formats
-* Integration with security dashboards
-* Machine learning anomaly detection
-
----
-
-# Disclaimer
-
-This project is for **educational and research purposes only**.
-
-Do not use these tools on networks without proper authorization.
-
----
-
-# Author
-
-Aldo Micha Omondi 
-
-# Lab Demonstration
-
-Analyzer running:
-
-[screenshot]
-
-Port scan detection:
-
-[screenshot]
-
-SYN flood detection:
-
-[screenshot]
-
-Network Packet Analyzer – v1
-
-                +------------------+
-                |   config.json    |
-                +------------------+
-                          |
-                          v
-                +------------------+
-                |  ConfigLoader    |
-                |------------------|
-                | Loads & validates|
-                | Provides access  |
-                +------------------+
-                          |
-            +-------------+--------------+
-            |                            |
-            v                            v
-+--------------------+           +-------------------+
-| PacketCapture      |           | DetectionEngine   |
-|--------------------|           |------------------|
-| Live capture (NIC) |           | Reads config      |
-| OR PCAP file read  |--packet--> Processes packet |
-| Yields packet dict |           | Detects events   |
-+--------------------+           +------------------+
-                                         |
-                                         v
-                                +------------------+
-                                |   EventLogger    |
-                                |------------------|
-                                | Logs events to   |
-                                | stdout or file  |
-                                | (JSON, pretty)  |
-                                +------------------+
+Automate simulated attack sequences for reproducible testing.
