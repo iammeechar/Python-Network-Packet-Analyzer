@@ -1,1 +1,5 @@
-scapy
+# Network Packet Analyzer v2 dependencies
+
+scapy==2.5.0           # Packet capture and analysis
+argparse               # CLI parsing (built-in, but can be included for clarity)
+typing-extensions      # For type hints on older Python versions
