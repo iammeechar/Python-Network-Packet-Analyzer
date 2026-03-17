@@ -6,7 +6,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 from config_loader import ConfigLoader
 from capture import PacketCapture
-from detector import DetectionEngine
+from detectors.engine import DetectionEngine
 from logger import EventLogger
 
 # -------------------------
