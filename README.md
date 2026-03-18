@@ -1,96 +1,208 @@
-Network Packet Analyzer v2 (NPA_lab2)
-Project Overview
+Network Packet Analyzer & Mini-IDS – Version 3 (V3)
+Status: Demonstration / Portfolio Ready
+This project is a modular network packet analyzer and mini-intrusion detection system (IDS) built in Python. Version 3 (V3) represents a major refactor, introducing modular detection, trusted host filtering, and structured JSON alert output.
 
-Description:
-A Python-based network packet analyzer designed to detect suspicious network activity, including port scans, SYN floods, and access to suspicious ports. v2 extends the prototype (v1) with improved modularity, live capture, PCAP replay, and structured logging for portfolio demonstration.
+🚀 Overview
+V3 builds on previous versions by improving code structure, detection accuracy, and maintainability:
+Replaces monolithic detector.py with modular detectors:
 
-Target Environment:
 
-Debian VM (analyzer)
+PortScanDetector
 
-Kali Linux / Windows VM (attack simulation)
 
-Metasploitable VM for vulnerability testing
+SynFloodDetector
 
-Core Technologies:
 
-Python 3.x
+SuspiciousPortsDetector
 
-Scapy for packet capture
 
-JSON configuration and structured logging
+Central DetectionEngine orchestrates all detector modules.
 
-Requirements
 
-Python 3.10+
+Filters packets from trusted hosts to reduce false positives.
 
-scapy
 
-argparse (standard library)
+Ignores broadcast, multicast, and malformed packets.
 
-Root privileges for live capture or SYN flood simulation
 
-VMs on the same subnet or bridged network
+Outputs alerts in structured JSON, ready for logging or integration with external tools.
 
-Setup Instructions
 
+Optional debug tracing for development/testing.
+
+
+
+⚙️ Features
+Feature
+Status
+Notes
+Port scan detection
+✅
+Configurable threshold and time window.
+SYN flood detection
+✅
+Tracks SYN and ACK counts per source IP.
+Suspicious ports detection
+✅
+Detects access to sensitive ports (e.g., 21, 22, 23, 25, 53).
+Trusted host filtering
+✅
+Skips packets from IDS host(s) to avoid false positives.
+Broadcast / multicast filtering
+✅
+Ignores packets not meant for a single host.
+JSON alert output
+✅
+Consistent format for all events.
+Optional debug/tracing
+✅
+Can be enabled for packet inspection.
+
+
+⚙️ Configuration
+Configuration is managed via config.json:
+{
+ "detection": {
+   "port_scan": {
+     "enabled": true,
+     "threshold": 2,
+     "time_window_seconds": 60,
+     "severity": {"numeric": 3, "label": "medium"}
+   },
+   "syn_flood": {
+     "enabled": true,
+     "threshold": 10,
+     "time_window_seconds": 10,
+     "severity": {"numeric": 4, "label": "high"}
+   },
+   "suspicious_ports": {
+     "enabled": true,
+     "ports": [21, 22, 23, 25, 53],
+     "severity": {"numeric": 2, "label": "low"}
+   }
+ },
+ "trusted_hosts": ["192.168.100.77"], 
+ "output": {"format": "json", "pretty_print": true, "file": "alerts.log"}
+}
+Note: trusted_hosts should include the IP of the IDS host itself to avoid self-detection.
+
+🖥️ Setup & Usage
 Clone the repository:
 
-git clone <repo-url> NPA_lab2
+
+git clone <repository-url>
 cd NPA_lab2
-
-Create and activate virtual environment:
-
-python3 -m venv .venv
-source .venv/bin/activate
-
 Install dependencies:
 
+
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
+Run live packet capture:
 
-Adjust thresholds and ports in config.json if necessary.
 
-Usage
-Live Capture
-sudo -E python3 cli.py --live --interface <interface-name> --config config.json --pretty
-PCAP Replay
-python3 cli.py --pcap sample.pcap --config config.json --pretty
-Output
+sudo .venv/bin/python cli.py --live --interface enp0s3
+Run from PCAP file:
 
-JSON formatted events, optionally written to a file:
 
---output-file events.json
-Test Plan
-Scenario	Target	Tool / Command	Expected Detection	Notes / Observations
-Port Scan	Debian VM	nmap -p 1-1024 <Debian-IP>	port_scan event if ports scanned exceed threshold	Multiple ports needed to exceed threshold
-SYN Flood	Debian VM	sudo hping3 -S -p 80 --flood <Debian-IP>	syn_flood event if SYN packets exceed threshold	Requires root; check cooldown
-Suspicious Port	Debian VM	nc <Debian-IP> 21 / 23 / 4444	suspicious_port event	Logged per connection attempt
-HTTP Traffic	Debian VM	curl http://<Debian-IP>	Logs port access (port 80)	v1 only logged port scans & SYN; test HTTP events
-PCAP Replay	Analyzer VM	python cli.py --pcap sample.pcap	Same events as live capture	Offline detection test
-Combined Attack	Debian + Metasploitable	Sequential scans, SYN floods, suspicious ports	Multiple events with varying severity	Observe handling of concurrent events
-Logging Verification	Analyzer VM	Review JSON log	Events logged with timestamp, source IP, severity	Include screenshots for portfolio
-Security Notes
+sudo .venv/bin/python cli.py --pcap example.pcap
+Output options:
 
-Root privileges are required for raw socket access.
 
-Always perform testing in isolated lab environments.
+--output-file <filename> → write events to a file
 
-Threshold tuning prevents excessive false positives during testing.
 
-Artifacts for Portfolio
+--pretty → pretty-print JSON output
 
-JSON logs of all events.
 
-Screenshots of live capture events.
 
-Example PCAP replay events.
+📝 Example Output
+{
+ "event_type": "port_scan",
+ "source_ip": "192.168.100.99",
+ "destination_ip": "192.168.100.77",
+ "ports_scanned": 2,
+ "time_window_seconds": 60,
+ "severity": "medium",
+ "timestamp": "2026-03-18T08:04:44Z"
+}
+{
+ "event_type": "suspicious_port",
+ "source_ip": "192.168.100.99",
+ "destination_ip": "192.168.100.77",
+ "port": 22,
+ "severity": "low",
+ "timestamp": "2026-03-18T08:04:04Z"
+}
+{
+ "event_type": "syn_flood",
+ "source_ip": "192.168.100.99",
+ "destination_ip": "192.168.100.77",
+ "syn_count": 10,
+ "ack_count": 0,
+ "time_window_seconds": 10,
+ "severity": "high",
+ "timestamp": "2026-03-18T08:05:32Z"
+}
 
-Configuration snapshots (config.json).
+⚠️ Notes / Limitations
+Currently, only IP-based trusted host filtering is implemented.
 
-Next Steps
 
-Expand detection rules for HTTP/HTTPS traffic and multi-layer threats.
+Detection thresholds are set for demonstration; production use would require tuning.
 
-Integrate alerts to a dashboard for SOC-like visualization.
 
-Automate simulated attack sequences for reproducible testing.
+Some external traffic (e.g., public internet hosts) may appear in results depending on network configuration.
+
+
+Future improvements (V4) may include:
+
+
+Brute-force detection
+
+
+UDP/ICMP flood detection
+
+
+Detection statistics
+
+
+Modular plugin support for new detectors
+
+
+Improved alert logging and notification
+
+
+
+🏗️ Project Structure (V3)
+NPA_lab2/
+│
+├── cli.py
+├── config.json
+├── capture.py
+├── logger.py
+├── detectors/
+│   ├── __init__.py
+│   ├── engine.py
+│   ├── base_detector.py
+│   ├── port_scan.py
+│   ├── syn_flood.py
+│   └── suspicious_ports.py
+└── logs/
+
+📌 Conclusion
+Version 3 demonstrates:
+Modular IDS design
+
+
+JSON-based alert logging
+
+
+Trusted host and broadcast filtering
+
+
+Readiness for future expansion
+
+
+This version is ideal for portfolio demonstration, showing structured network detection logic and a clear progression from V1/V2.
+
