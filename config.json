@@ -27,6 +27,7 @@
       }
     }
   },
+  "trusted_hosts": ["192.168.100.77"], 
   "output": {
     "format": "json",
     "pretty_print": false,
